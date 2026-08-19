@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Fallback';
+  src: local('Arial');
+}
+
+:root {
+  /* VANTERRA design tokens */
+  --v-bg-0: #050505;
+  --v-bg-1: #0b0b0b;
+  --v-bg-2: #101012;
+  --v-surface: #131315;
+  --v-surface-raised: #17171a;
+  --v-border: rgba(255,255,255,0.08);
+  --v-border-strong: rgba(255,255,255,0.16);
+
+  --v-platinum: #d8dadd;
+  --v-silver: #a8adb4;
+  --v-silver-dim: #6f747c;
+  --v-white: #f5f6f7;
+  --v-muted: #8a8d93;
+  --v-muted-2: #57595e;
+
+  --v-success: #6fae8c;
+  --v-success-dim: #38493f;
+  --v-warning: #c2a05a;
+  --v-warning-dim: #4a4030;
+  --v-danger: #b46a6a;
+  --v-danger-dim: #4a3232;
+
+  /* Warm accent — the app's signature glow color, used for charts, active
+     states, progress indicators, and primary actions. Distinct from
+     --v-warning (which stays reserved for actual warning states). */
+  --v-accent: #e0a05a;
+  --v-accent-soft: #c98f52;
+  --v-accent-dim: rgba(224,160,90,0.14);
+  --v-accent-glow: rgba(224,160,90,0.22);
+
+  --v-radius-sm: 6px;
+  --v-radius-md: 9px;
+  --v-radius-lg: 12px;
+
+  --v-shadow: 0 8px 30px rgba(0,0,0,0.55);
+  --v-glow-platinum: 0 0 40px rgba(216,218,221,0.08);
+  --v-glow-accent: 0 0 48px rgba(224,160,90,0.14);
+
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--v-bg-0);
+  color: var(--v-white);
+}
+
+body {
+  font-family: 'Neue Montreal', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(224,160,90,0.06), transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(216,218,221,0.03), transparent 35%),
+    var(--v-bg-0);
+}
+
+::selection { background: rgba(216,218,221,0.25); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #232326; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #2e2e32; }
+
+.v-mono { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace; letter-spacing: 0.01em; }
+
+.v-card {
+  background: linear-gradient(180deg, var(--v-surface), var(--v-bg-1));
+  border: 1px solid var(--v-border);
+  border-radius: var(--v-radius-lg);
+}
+.v-card:hover { border-color: rgba(224,160,90,0.22); box-shadow: 0 0 0 1px rgba(224,160,90,0.08), var(--v-shadow); }
+
+.v-divider { border-color: var(--v-border); }
+
+.v-focus:focus-visible {
+  outline: 1px solid var(--v-platinum);
+  outline-offset: 2px;
+}
+
+@keyframes v-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.v-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(216,218,221,0.18), transparent);
+  background-size: 200% 100%;
+  animation: v-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes v-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(224,160,90,0.35); }
+  100% { box-shadow: 0 0 0 8px rgba(224,160,90,0); }
+}
+.v-pulse { animation: v-pulse-ring 1.8s ease-out infinite; }
+
+@keyframes v-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.v-rise { animation: v-rise 0.35s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .v-shimmer, .v-pulse, .v-rise { animation: none; }
+}
