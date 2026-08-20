@@ -11,7 +11,7 @@ import { JsonRpcProvider, formatEther, getAddress, isAddress, Contract, formatUn
 
 const DEFAULT_TESTNET_RPC = 'https://testrpc.xlayer.tech/terigon';
 const RPC_URL = process.env.XLAYER_RPC_URL || DEFAULT_TESTNET_RPC;
-const ACTIVITY_BLOCK_RANGE = Number(process.env.ACTIVITY_BLOCK_RANGE || 2000);
+const ACTIVITY_BLOCK_RANGE = Number(process.env.ACTIVITY_BLOCK_RANGE || 600);
 
 export const isRpcConfigured = true; // always at least the public testnet default
 
@@ -132,7 +132,10 @@ export async function getRecentActivity(address) {
   const events = [];
 
   const target = checksummed.toLowerCase();
-  const step = 10;  // keep concurrency low — public RPC rate-limits bursts
+  
+  const step = 25; // concurrent individual requests per round — batching is
+  // already disabled via batchMaxCount:1, so this just controls parallelism,
+  // not batch size. Too high still risks the RPC's own rate limiting.
   for (let b = latest; b > from; b -= step) {
     const blockNumbers = Array.from({ length: Math.min(step, b - from) }, (_, i) => b - i);
     const blocks = await Promise.allSettled(blockNumbers.map((n) => p.getBlock(n, true)));

@@ -10,7 +10,7 @@ export default function Whales() {
   const [events, setEvents] = useState(null);
   const [trackerStatus, setTrackerStatus] = useState(null);
   const [trackInput, setTrackInput] = useState('');
-  const [tracked, setTracked] = useState(null); // { address, balance, activity, tokenActivity } | null
+  const [tracked, setTracked] = useState(null); // { address, balance, activity } | null
   const [trackError, setTrackError] = useState(null);
   const [tracking, setTracking] = useState(false);
   const navigate = useNavigate();
@@ -28,11 +28,11 @@ export default function Whales() {
     setTrackError(null);
     setTracked(null);
     try {
-      const [balance, { activity, tokenActivity }] = await Promise.all([
+      const [balance, { activity, tokenActivity, note }] = await Promise.all([
         getWalletBalance(address),
         getWalletActivity(address),
       ]);
-      setTracked({ address, balance, activity, tokenActivity: tokenActivity || [] });
+      setTracked({ address, balance, activity, tokenActivity: tokenActivity || [], note });
     } catch (err) {
       setTrackError(err.message);
     } finally {
@@ -91,6 +91,9 @@ export default function Whales() {
                 {tracked.balance.native.toLocaleString(undefined, { maximumFractionDigits: 4 })} {tracked.balance.nativeSymbol}
               </p>
             </div>
+            {tracked.note && (
+              <p className="text-xs text-[var(--v-warning)] mb-3">{tracked.note}</p>
+            )}
             {tracked.activity.length === 0 && tracked.tokenActivity.length === 0 ? (
               <p className="text-xs text-[var(--v-muted)]">No transfers found for this address in the recent scan window.</p>
             ) : (
