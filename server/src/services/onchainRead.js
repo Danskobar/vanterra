@@ -1,4 +1,4 @@
-import { JsonRpcProvider, formatEther } from 'ethers';
+import { JsonRpcProvider, formatEther, getAddress, isAddress } from 'ethers';
 
 // Server-side read-only access to X Layer — used by the Telegram bot and
 // the whale watchlist, neither of which has a browser wallet of its own.
@@ -21,8 +21,22 @@ function getProvider() {
   return provider;
 }
 
+// ethers enforces EIP-55 checksum casing strictly — a pasted or typed
+// address with even one letter's case wrong throws "bad address checksum"
+// instead of just working. Normalize to lowercase (always valid, no
+// checksum required) so any casing a user pastes in works, and only
+// genuinely malformed addresses (wrong length, non-hex) get rejected.
+function normalizeAddress(address) {
+  const trimmed = (address || '').trim().toLowerCase();
+  if (!isAddress(trimmed)) {
+    throw new Error(`"${address}" is not a valid wallet address.`);
+  }
+  return getAddress(trimmed);
+}
+
 export async function getNativeBalance(address) {
-  const bal = await getProvider().getBalance(address);
+  const checksummed = normalizeAddress(address);
+  const bal = await getProvider().getBalance(checksummed);
   return Number(formatEther(bal));
 }
 
@@ -33,6 +47,7 @@ export async function getNativeBalance(address) {
 // tracking across full history, replace this with a proper indexer
 // (e.g. an X Layer-compatible subgraph or a paid archive-node provider).
 export async function getRecentActivity(address) {
+  const checksummed = normalizeAddress(address);
   const p = getProvider();
   const latest = await p.getBlockNumber();
   const from = Math.max(0, latest - ACTIVITY_BLOCK_RANGE);
@@ -41,7 +56,7 @@ export async function getRecentActivity(address) {
   // Native transfers don't emit logs, so we walk recent blocks directly.
   // Bounded and best-effort: skips a block on read failure rather than
   // aborting the whole scan.
-  const target = address.toLowerCase();
+  const target = checksummed.toLowerCase();
   const step = 50; // batch to keep this responsive
   for (let b = latest; b > from; b -= step) {
     const blockNumbers = Array.from({ length: Math.min(step, b - from) }, (_, i) => b - i);
