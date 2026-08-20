@@ -54,10 +54,24 @@ function hasInjectedProvider() {
   return typeof window !== 'undefined' && Boolean(window.ethereum);
 }
 
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
+
 export async function connectWallet() {
   if (hasInjectedProvider()) {
     try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const accounts = await withTimeout(
+        window.ethereum.request({ method: 'eth_requestAccounts' }),
+        15000,
+        'Wallet did not respond in time. Make sure your wallet extension is unlocked, then try again.'
+      );
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No account was returned by the wallet.');
+      }
       return {
         address: accounts[0],
         chainId: await window.ethereum.request({ method: 'eth_chainId' }),
@@ -71,44 +85,4 @@ export async function connectWallet() {
   // DEMO MODE fallback
   await new Promise((r) => setTimeout(r, 900));
   return { address: DEMO_ADDRESS, chainId: X_LAYER.chainIdHex, isDemo: true };
-}
-
-export async function fetchBalances(address, isDemo) {
-  if (!isDemo) {
-    if (!X_LAYER.rpcUrl) {
-      // Real wallet connected, but no RPC configured yet — say so plainly
-      // instead of returning a zeroed-out stub that looks broken.
-      throw new Error(
-        'X Layer RPC not configured. Set VITE_XLAYER_RPC_URL in .env to read real balances.'
-      );
-    }
-    const provider = new JsonRpcProvider(X_LAYER.rpcUrl);
-    const nativeWei = await provider.getBalance(address);
-    const native = Number(formatEther(nativeWei));
-
-    const tokens = [];
-    for (const t of trackedTokens()) {
-      try {
-        const contract = new Contract(t.address, ERC20_ABI, provider);
-        const [raw, decimals] = await Promise.all([contract.balanceOf(address), contract.decimals()]);
-        tokens.push({ symbol: t.symbol, amount: Number(formatUnits(raw, decimals)) });
-      } catch {
-        // Skip a misconfigured token address rather than failing the whole read.
-      }
-    }
-
-    return { native, nativeSymbol: X_LAYER.nativeCurrency.symbol, tokens, isReal: true };
-  }
-
-  await new Promise((r) => setTimeout(r, 400));
-  return {
-    native: 412.6,
-    nativeSymbol: 'OKB',
-    tokens: [{ symbol: 'USDC', amount: 1310.22 }],
-    isReal: false,
-  };
-}
-
-export function disconnectWallet() {
-  return Promise.resolve();
 }
