@@ -56,8 +56,8 @@ export async function connectWallet() {
     try {
       const accounts = await withTimeout(
         window.ethereum.request({ method: 'eth_requestAccounts' }),
-        15000,
-        'Wallet did not respond in time. Make sure your wallet extension is unlocked, then try again.'
+        6000,
+        'Wallet did not respond. Check for a MetaMask popup — it sometimes opens behind your browser window or in another tab. Click the MetaMask icon in your browser toolbar to check for a pending request.'
       );
       if (!accounts || accounts.length === 0) {
         throw new Error('No account was returned by the wallet.');

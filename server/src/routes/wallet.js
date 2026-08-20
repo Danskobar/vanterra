@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getNativeBalance, getRecentActivity, isRpcConfigured } from '../services/onchainRead.js';
+import { getNativeBalance, getRecentActivity, getTokenActivity, isRpcConfigured } from '../services/onchainRead.js';
 
 export const walletRouter = Router();
 
@@ -18,8 +18,11 @@ walletRouter.get('/:address/balance', async (req, res) => {
 
 walletRouter.get('/:address/activity', async (req, res) => {
   try {
-    const activity = await getRecentActivity(req.params.address);
-    res.json({ address: req.params.address, activity });
+    const [nativeActivity, tokenActivity] = await Promise.all([
+      getRecentActivity(req.params.address),
+      getTokenActivity(req.params.address).catch(() => []),
+    ]);
+    res.json({ address: req.params.address, activity: nativeActivity, tokenActivity });
   } catch (err) {
     res.status(503).json({ error: err.message });
   }

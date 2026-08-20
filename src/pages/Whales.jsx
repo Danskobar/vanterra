@@ -10,7 +10,7 @@ export default function Whales() {
   const [events, setEvents] = useState(null);
   const [trackerStatus, setTrackerStatus] = useState(null);
   const [trackInput, setTrackInput] = useState('');
-  const [tracked, setTracked] = useState(null); // { address, balance, activity } | null
+  const [tracked, setTracked] = useState(null); // { address, balance, activity, tokenActivity } | null
   const [trackError, setTrackError] = useState(null);
   const [tracking, setTracking] = useState(false);
   const navigate = useNavigate();
@@ -28,11 +28,11 @@ export default function Whales() {
     setTrackError(null);
     setTracked(null);
     try {
-      const [balance, { activity }] = await Promise.all([
+      const [balance, { activity, tokenActivity }] = await Promise.all([
         getWalletBalance(address),
         getWalletActivity(address),
       ]);
-      setTracked({ address, balance, activity });
+      setTracked({ address, balance, activity, tokenActivity: tokenActivity || [] });
     } catch (err) {
       setTrackError(err.message);
     } finally {
@@ -91,21 +91,47 @@ export default function Whales() {
                 {tracked.balance.native.toLocaleString(undefined, { maximumFractionDigits: 4 })} {tracked.balance.nativeSymbol}
               </p>
             </div>
-            {tracked.activity.length === 0 ? (
+            {tracked.activity.length === 0 && tracked.tokenActivity.length === 0 ? (
               <p className="text-xs text-[var(--v-muted)]">No transfers found for this address in the recent scan window.</p>
             ) : (
-              <div className="space-y-2">
-                {tracked.activity.slice(0, 10).map((tx) => (
-                  <div key={tx.hash} className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--v-muted)]">
-                      {tx.direction === 'IN' ? 'Received' : 'Sent'} · {timeAgo(tx.timestamp)}
-                    </span>
-                    <span className="v-mono" style={{ color: tx.direction === 'IN' ? 'var(--v-success)' : 'var(--v-danger)' }}>
-                      {tx.direction === 'IN' ? '+' : '-'}
-                      {tx.valueNative.toFixed(4)} {tracked.balance.nativeSymbol}
-                    </span>
+              <div className="space-y-4">
+                {tracked.activity.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-[var(--v-muted-2)] uppercase tracking-wider mb-2">Native ({tracked.balance.nativeSymbol})</p>
+                    <div className="space-y-2">
+                      {tracked.activity.slice(0, 10).map((tx) => (
+                        <div key={tx.hash} className="flex items-center justify-between text-sm">
+                          <span className="text-[var(--v-muted)]">
+                            {tx.direction === 'IN' ? 'Received' : 'Sent'} · {timeAgo(tx.timestamp)}
+                          </span>
+                          <span className="v-mono" style={{ color: tx.direction === 'IN' ? 'var(--v-success)' : 'var(--v-danger)' }}>
+                            {tx.direction === 'IN' ? '+' : '-'}
+                            {tx.valueNative.toFixed(4)} {tracked.balance.nativeSymbol}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+                {tracked.tokenActivity.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-[var(--v-muted-2)] uppercase tracking-wider mb-2">Token Transfers</p>
+                    <div className="space-y-2">
+                      {tracked.tokenActivity.slice(0, 10).map((tx) => (
+                        <div key={tx.hash + tx.tokenAddress} className="flex items-center justify-between text-sm">
+                          <span className="text-[var(--v-muted)]">
+                            {tx.direction === 'IN' ? 'Received' : 'Sent'} {tx.tokenSymbol}
+                            {tx.timestamp ? ` · ${timeAgo(tx.timestamp)}` : ''}
+                          </span>
+                          <span className="v-mono" style={{ color: tx.direction === 'IN' ? 'var(--v-success)' : 'var(--v-danger)' }}>
+                            {tx.direction === 'IN' ? '+' : '-'}
+                            {tx.value.toLocaleString(undefined, { maximumFractionDigits: 4 })} {tx.tokenSymbol}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
