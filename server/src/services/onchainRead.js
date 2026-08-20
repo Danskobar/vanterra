@@ -11,7 +11,13 @@ import { JsonRpcProvider, formatEther, getAddress, isAddress, Contract, formatUn
 
 const DEFAULT_TESTNET_RPC = 'https://testrpc.xlayer.tech/terigon';
 const RPC_URL = process.env.XLAYER_RPC_URL || DEFAULT_TESTNET_RPC;
-const ACTIVITY_BLOCK_RANGE = Number(process.env.ACTIVITY_BLOCK_RANGE || 600);
+// Native-transfer scanning walks every block individually (expensive), so
+// it needs a small window to stay fast. Token-transfer scanning uses
+// eth_getLogs (cheap — one or two RPC calls regardless of range), so it can
+// safely cover a much wider window. The RPC itself prunes logs older than
+// ~10,000 blocks, so we stay just under that.
+const NATIVE_ACTIVITY_BLOCK_RANGE = Number(process.env.NATIVE_ACTIVITY_BLOCK_RANGE || 600);
+const TOKEN_ACTIVITY_BLOCK_RANGE = Number(process.env.TOKEN_ACTIVITY_BLOCK_RANGE || 9000);
 
 export const isRpcConfigured = true; // always at least the public testnet default
 
@@ -75,7 +81,7 @@ export async function getTokenActivity(address) {
   const checksummed = normalizeAddress(address);
   const p = getProvider();
   const latest = await p.getBlockNumber();
-  const from = Math.max(0, latest - ACTIVITY_BLOCK_RANGE);
+  const from = Math.max(0, latest - TOKEN_ACTIVITY_BLOCK_RANGE);
   const paddedAddress = zeroPadValue(checksummed, 32);
 
   const [outgoing, incoming] = await Promise.all([
@@ -88,6 +94,7 @@ export async function getTokenActivity(address) {
     .slice(0, 25);
 
   const blocksByNumber = new Map();
+  const events = [];
   for (const log of logs) {
     if (!blocksByNumber.has(log.blockNumber)) {
       blocksByNumber.set(log.blockNumber, p.getBlock(log.blockNumber).catch(() => null));
@@ -95,7 +102,6 @@ export async function getTokenActivity(address) {
   }
   await Promise.all(blocksByNumber.values());
 
-  const events = [];
   for (const log of logs) {
     const meta = await getTokenMeta(log.address);
     const from = '0x' + log.topics[1].slice(26);
@@ -118,7 +124,7 @@ export async function getTokenActivity(address) {
   return events.sort((a, b) => b.blockNumber - a.blockNumber);
 }
 
-// Scans the last ACTIVITY_BLOCK_RANGE blocks for native-currency transfers
+// Scans the last NATIVE_ACTIVITY_BLOCK_RANGE blocks for native-currency transfers
 // into or out of `address`. This is a lightweight, on-demand scan (no
 // background indexer) — real data, but bounded to a recent window, so very
 // old or very quiet wallets may show nothing. For production-grade whale
@@ -128,11 +134,13 @@ export async function getRecentActivity(address) {
   const checksummed = normalizeAddress(address);
   const p = getProvider();
   const latest = await p.getBlockNumber();
-  const from = Math.max(0, latest - ACTIVITY_BLOCK_RANGE);
+  const from = Math.max(0, latest - NATIVE_ACTIVITY_BLOCK_RANGE);
   const events = [];
 
+  // Native transfers don't emit logs, so we walk recent blocks directly.
+  // Bounded and best-effort: skips a block on read failure rather than
+  // aborting the whole scan.
   const target = checksummed.toLowerCase();
-  
   const step = 25; // concurrent individual requests per round — batching is
   // already disabled via batchMaxCount:1, so this just controls parallelism,
   // not batch size. Too high still risks the RPC's own rate limiting.
@@ -156,7 +164,7 @@ export async function getRecentActivity(address) {
         }
       }
     }
-    if (events.length >= 25) break;
+    if (events.length >= 25) break; // enough for a UI list
   }
 
   return events.sort((a, b) => b.blockNumber - a.blockNumber).slice(0, 25);
