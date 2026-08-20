@@ -17,7 +17,12 @@ export const isRpcConfigured = true; // always at least the public testnet defau
 
 let provider = null;
 function getProvider() {
-  if (!provider) provider = new JsonRpcProvider(RPC_URL);
+  // batchMaxCount: 1 disables ethers' automatic request batching. The public
+  // X Layer testnet RPC caps how many JSON-RPC calls it accepts in a single
+  // batch, and our block-scanning fires many concurrent getBlock() calls —
+  // without this, ethers bundles them and the RPC rejects the whole batch
+  // with "too many RPC calls in batch request".
+  if (!provider) provider = new JsonRpcProvider(RPC_URL, undefined, { batchMaxCount: 1 });
   return provider;
 }
 
@@ -127,7 +132,7 @@ export async function getRecentActivity(address) {
   const events = [];
 
   const target = checksummed.toLowerCase();
-  const step = 50;
+  const step = 10;  // keep concurrency low — public RPC rate-limits bursts
   for (let b = latest; b > from; b -= step) {
     const blockNumbers = Array.from({ length: Math.min(step, b - from) }, (_, i) => b - i);
     const blocks = await Promise.allSettled(blockNumbers.map((n) => p.getBlock(n, true)));
