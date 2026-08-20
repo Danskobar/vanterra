@@ -1,18 +1,5 @@
 // Wallet service abstraction.
 //
-// REAL MODE: this module is where an X Layer-compatible EIP-1193 provider
-// (e.g. window.ethereum via wagmi/viem) would be wired in. VANTERRA never
-// requests seed phrases or private keys — only a standard connect/sign flow.
-//
-// DEMO MODE: no injected provider is available in this environment, so
-// connection is simulated with a realistic async flow and a synthetic
-// address/balance. This is clearly surfaced to the user via isDemo=true.
-
-import { JsonRpcProvider, Contract, formatEther, formatUnits } from 'ethers';
-import { X_LAYER } from './xlayer.js';
-
-// Wallet service abstraction.
-//
 // REAL MODE: connects via any injected EIP-1193 provider (MetaMask, etc.)
 // and reads REAL onchain balances from X Layer once VITE_XLAYER_RPC_URL is
 // configured. VANTERRA never requests seed phrases or private keys.
@@ -26,6 +13,9 @@ import { X_LAYER } from './xlayer.js';
 //
 // DEMO MODE: no injected provider is available, so connection is simulated
 // with a synthetic address. This is always clearly surfaced via isDemo=true.
+
+import { JsonRpcProvider, Contract, formatEther, formatUnits } from 'ethers';
+import { X_LAYER } from './xlayer.js';
 
 const DEMO_ADDRESS = '0x4f2A9c7B1d3E5f6A8b0C1d2E3f4A5b6C7d8E9f0A';
 
@@ -85,4 +75,42 @@ export async function connectWallet() {
   // DEMO MODE fallback
   await new Promise((r) => setTimeout(r, 900));
   return { address: DEMO_ADDRESS, chainId: X_LAYER.chainIdHex, isDemo: true };
+}
+
+export async function fetchBalances(address, isDemo) {
+  if (!isDemo) {
+    if (!X_LAYER.rpcUrl) {
+      throw new Error(
+        'X Layer RPC not configured. Set VITE_XLAYER_RPC_URL in .env to read real balances.'
+      );
+    }
+    const provider = new JsonRpcProvider(X_LAYER.rpcUrl);
+    const nativeWei = await provider.getBalance(address);
+    const native = Number(formatEther(nativeWei));
+
+    const tokens = [];
+    for (const t of trackedTokens()) {
+      try {
+        const contract = new Contract(t.address, ERC20_ABI, provider);
+        const [raw, decimals] = await Promise.all([contract.balanceOf(address), contract.decimals()]);
+        tokens.push({ symbol: t.symbol, amount: Number(formatUnits(raw, decimals)) });
+      } catch {
+        // Skip a misconfigured token address rather than failing the whole read.
+      }
+    }
+
+    return { native, nativeSymbol: X_LAYER.nativeCurrency.symbol, tokens, isReal: true };
+  }
+
+  await new Promise((r) => setTimeout(r, 400));
+  return {
+    native: 412.6,
+    nativeSymbol: 'OKB',
+    tokens: [{ symbol: 'USDC', amount: 1310.22 }],
+    isReal: false,
+  };
+}
+
+export function disconnectWallet() {
+  return Promise.resolve();
 }
